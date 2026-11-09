@@ -1,0 +1,167 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>죽림고수</title>
+<style>
+body {
+  margin: 0;
+  background: #111827;
+  color: white;
+  font-family: sans-serif;
+  text-align: center;
+}
+h1 { margin: 20px 0 8px; }
+#info { margin: 12px; }
+canvas {
+  width: min(94vw, 720px);
+  background: #263449;
+  border: 2px solid #8090a8;
+  border-radius: 10px;
+  touch-action: none;
+}
+button {
+  padding: 12px 25px;
+  margin: 12px;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+<h1>죽림고수</h1>
+<div id="info">
+  생존 시간: <span id="time">0.0</span>초
+  | 난이도: <span id="level">1</span>
+</div>
+<canvas id="game" width="720" height="520"></canvas>
+<br>
+<button onclick="startGame()">게임 시작 / 재시작</button>
+<p>방향키 또는 WASD로 이동하세요.</p>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let player, bullets, keys = {};
+let running = false;
+let elapsed = 0;
+let last = 0;
+let spawn = 0;
+
+function startGame() {
+  player = {x:360, y:260, r:12, speed:4.5};
+  bullets = [];
+  elapsed = 0;
+  spawn = 0;
+  last = performance.now();
+  running = true;
+  requestAnimationFrame(loop);
+}
+
+window.addEventListener("keydown", e => {
+  keys[e.key.toLowerCase()] = true;
+  if (e.key.startsWith("Arrow")) e.preventDefault();
+});
+window.addEventListener("keyup", e => {
+  keys[e.key.toLowerCase()] = false;
+});
+
+function createBullet() {
+  let side = Math.floor(Math.random()*4);
+  let x = side===0 ? Math.random()*720 :
+          side===1 ? 740 :
+          side===2 ? Math.random()*720 : -20;
+  let y = side===0 ? -20 :
+          side===1 ? Math.random()*520 :
+          side===2 ? 540 : Math.random()*520;
+
+  let dx = player.x-x, dy = player.y-y;
+  let d = Math.hypot(dx,dy);
+  let speed = Math.min(2.5+elapsed*0.045,8);
+
+  bullets.push({
+    x,y,
+    vx:dx/d*speed,
+    vy:dy/d*speed,
+    r:8
+  });
+}
+
+function update(dt) {
+  elapsed += dt;
+
+  let move = player.speed * Math.min(dt*60,2);
+  if(keys["arrowleft"] || keys["a"]) player.x-=move;
+  if(keys["arrowright"] || keys["d"]) player.x+=move;
+  if(keys["arrowup"] || keys["w"]) player.y-=move;
+  if(keys["arrowdown"] || keys["s"]) player.y+=move;
+
+  player.x = Math.max(14,Math.min(706,player.x));
+  player.y = Math.max(14,Math.min(506,player.y));
+
+  let interval = Math.max(0.18,0.9-elapsed*0.009);
+  spawn += dt;
+
+  while(spawn >= interval) {
+    spawn -= interval;
+    createBullet();
+    if(elapsed>25 && Math.random()<0.35) createBullet();
+  }
+
+  for(let b of bullets) {
+    b.x += b.vx*dt*60;
+    b.y += b.vy*dt*60;
+
+    if(Math.hypot(player.x-b.x,player.y-b.y)<player.r+b.r) {
+      running = false;
+      alert("게임 종료! 생존 시간: "+elapsed.toFixed(1)+"초");
+      return;
+    }
+  }
+
+  bullets = bullets.filter(b =>
+    b.x>-50 && b.x<770 && b.y>-50 && b.y<570
+  );
+
+  document.getElementById("time").textContent=elapsed.toFixed(1);
+  document.getElementById("level").textContent=
+    Math.floor(1+elapsed/15);
+}
+
+function draw() {
+  ctx.clearRect(0,0,720,520);
+
+  ctx.strokeStyle="rgba(255,255,255,0.07)";
+  for(let x=0;x<720;x+=40) {
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,520); ctx.stroke();
+  }
+  for(let y=0;y<520;y+=40) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(720,y); ctx.stroke();
+  }
+
+  for(let b of bullets) {
+    ctx.fillStyle="#f4c75e";
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle="#65e4c1";
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
+  ctx.fill();
+}
+
+function loop(now) {
+  if(!running) return;
+  let dt=Math.min((now-last)/1000,0.04);
+  last=now;
+  update(dt);
+  draw();
+  if(running) requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
